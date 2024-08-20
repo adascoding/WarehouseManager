@@ -1,4 +1,3 @@
-
 using Microsoft.EntityFrameworkCore;
 using WarehouseManager.API.Data;
 using WarehouseManager.API.Mappings;
@@ -19,42 +18,49 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        // Add services to the container.
         builder.Services.AddControllers();
 
+        // AutoMapper
         builder.Services.AddAutoMapper(typeof(MappingProfile));
 
+        // Repositories
         builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
         builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
+        // Services
         builder.Services.AddScoped<IWarehouseService, WarehouseService>();
         builder.Services.AddScoped<IProductService, ProductService>();
-
         builder.Services.AddScoped<ITokenService, TokenService>();
 
+        // Database contexts
         builder.Services.AddDbContext<WarehouseContext>(opt =>
-opt.UseSqlServer(builder.Configuration.GetConnectionString("WarehouseDB")));
-
+            opt.UseSqlServer(builder.Configuration.GetConnectionString("WarehouseDB")));
         builder.Services.AddDbContext<UserContext>(opt =>
-opt.UseSqlServer(builder.Configuration.GetConnectionString("UserDB")));
+            opt.UseSqlServer(builder.Configuration.GetConnectionString("UserDB")));
 
-        builder.Services.AddAuthentication(opt => {
-            opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
+        // JWT Authentication
+        builder.Services.AddAuthentication(options =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration.GetValue<string>("Authentication:Issuer"),
-            ValidAudience = builder.Configuration.GetValue<string>("Authentication:Audience"),
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetValue<string>("Authentication:SecretKey")))
-        };
-    });
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = builder.Configuration["Authentication:Issuer"],
+                ValidAudience = builder.Configuration["Authentication:Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(builder.Configuration["Authentication:SecretKey"]))
+            };
+        });
 
+        // Swagger
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
         {
@@ -88,13 +94,7 @@ opt.UseSqlServer(builder.Configuration.GetConnectionString("UserDB")));
 
         var app = builder.Build();
 
-        using (var scope = app.Services.CreateScope())
-        {
-            var services = scope.ServiceProvider;
-            var context = services.GetRequiredService<WarehouseContext>();
-            WarehouseContext.Seed(context).Wait();
-        }
-
+        // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
@@ -104,7 +104,6 @@ opt.UseSqlServer(builder.Configuration.GetConnectionString("UserDB")));
         app.UseHttpsRedirection();
         app.UseAuthentication();
         app.UseAuthorization();
-
 
         app.MapControllers();
 
